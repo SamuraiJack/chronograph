@@ -1,4 +1,5 @@
 import { Base } from "../class/Mixin.js"
+import { lazyBuild } from "../util/Helper.js"
 import { Field, Name } from "./Field.js"
 import { Schema } from "./Schema.js"
 
@@ -22,19 +23,7 @@ export class Entity extends Base {
 
 
     getField (name : Name) : Field {
-        let result : Field  = undefined
-
-        this.forEachParent(entity => {
-            const field     = entity.fields.get(name)
-
-            if (field) {
-                result      = field
-
-                return IteratorReturnedEarly
-            }
-        })
-
-        return result
+        return this.allFields.get(name)
     }
 
 
@@ -42,7 +31,7 @@ export class Entity extends Base {
         const name      = field.name
         if (!name) throw new Error(`Field must have a name`)
 
-        if (this.fields.has(name)) throw new Error(`Field with name [${String(name)}] already exists`)
+        if (this.fields.has(name)) throw new Error(`Field with name [${name}] already exists`)
 
         field.entity    = this
 
@@ -63,17 +52,25 @@ export class Entity extends Base {
     }
 
 
-    forEachField (func : (field : Field, name : Name) => void) {
+    get allFields () : Map<Name, Field> {
+        const allFields             = new Map()
         const visited : Set<Name>   = new Set()
 
         this.forEachParent(entity => {
-            entity.fields.forEach((field : Field, name : Name) => {
+            entity.ownFields.forEach((field : Field, name : Name) => {
                 if (!visited.has(name)) {
                     visited.add(name)
 
-                    func(field, name)
+                    allFields.set(name, field)
                 }
             })
         })
+
+        return lazyBuild(this, 'allFields', allFields)
+    }
+
+
+    forEachField (func : (field : Field, name : Name) => any) {
+        this.allFields.forEach(func)
     }
 }
